@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mirrordna
+  labels:
+    app: mirrordna
+    version: v1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mirrordna
+  template:
+    metadata:
+      labels:
+        app: mirrordna
+        version: v1.0.0
+    spec:
+      containers:
+      - name: mirrordna
+        image: mirrordna/mirrordna:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: MIRRORDNA_STORAGE
+          value: "postgresql"
+        - name: MIRRORDNA_LOG_LEVEL
+          value: "INFO"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: mirrordna-secrets
+              key: database-url
+        - name: MIRRORDNA_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mirrordna-secrets
+              key: private-key
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /etc/mirrordna
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - mirrordna
+            - health
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - mirrordna
+            - health
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: mirrordna-data-pvc
+      - name: config
+        configMap:
+          name: mirrordna-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mirrordna
+  labels:
+    app: mirrordna
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: mirrordna
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mirrordna-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mirrordna-config
+data:
+  master_citation.yaml: |
+    id: mc_k8s_001
+    version: 1.0.0
+    vault_id: vault_k8s_001
+    created_at: "2025-01-01T00:00:00Z"
+    checksum: PLACEHOLDER
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mirrordna-secrets
+type: Opaque
+stringData:
+  database-url: "postgresql://user:password@postgres:5432/mirrordna"
+  private-key: "CHANGE_ME"

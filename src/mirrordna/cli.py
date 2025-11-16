@@ -357,6 +357,33 @@ def cmd_version(args):
 
 
 # ============================================================================
+# Benchmark Command
+# ============================================================================
+
+def cmd_benchmark(args):
+    """Run benchmarks."""
+    try:
+        from .benchmark import create_default_suite
+        from pathlib import Path
+
+        suite = create_default_suite(iterations=args.iterations)
+        results = suite.run_all()
+        suite.print_results()
+
+        if args.output:
+            suite.export_json(Path(args.output))
+            print(f"\n✓ Results exported to: {args.output}")
+
+        return 0
+    except Exception as e:
+        print(f"Benchmark failed: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+# ============================================================================
 # Health Check Command
 # ============================================================================
 
@@ -470,6 +497,15 @@ def create_parser():
     snapshot_load = snapshot_sub.add_parser("load", help="Load snapshot")
     snapshot_load.add_argument("file", help="Snapshot file")
     snapshot_load.set_defaults(func=cmd_snapshot_load)
+
+    # Benchmark command
+    benchmark_parser = subparsers.add_parser("benchmark", help="Run performance benchmarks")
+    benchmark_parser.add_argument("--suite", choices=["full", "quick"], default="full",
+                                   help="Benchmark suite to run")
+    benchmark_parser.add_argument("--iterations", type=int, default=100,
+                                   help="Number of iterations per benchmark")
+    benchmark_parser.add_argument("--output", type=str, help="Export results to JSON file")
+    benchmark_parser.set_defaults(func=cmd_benchmark)
 
     # Health check command
     health_parser = subparsers.add_parser("health", help="System health check")

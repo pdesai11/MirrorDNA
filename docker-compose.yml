@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  mirrordna:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mirrordna:latest
+    container_name: mirrordna-app
+    environment:
+      - MIRRORDNA_STORAGE=json_file
+      - MIRRORDNA_LOG_LEVEL=INFO
+      - MIRRORDNA_DATA_DIR=/data/.mirrordna/data
+    volumes:
+      - mirrordna-data:/data
+      - ./examples:/app/examples:ro
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    command: health --verbose
+
+  # Optional: PostgreSQL storage backend
+  postgres:
+    image: postgres:15-alpine
+    container_name: mirrordna-postgres
+    environment:
+      - POSTGRES_DB=mirrordna
+      - POSTGRES_USER=mirrordna
+      - POSTGRES_PASSWORD=mirrordna_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    profiles:
+      - storage
+
+  # Optional: MongoDB storage backend
+  mongodb:
+    image: mongo:7
+    container_name: mirrordna-mongodb
+    environment:
+      - MONGO_INITDB_DATABASE=mirrordna
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=mongodb_password
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    profiles:
+      - storage
+
+  # Optional: Redis for caching/streaming
+  redis:
+    image: redis:7-alpine
+    container_name: mirrordna-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    profiles:
+      - cache
+
+volumes:
+  mirrordna-data:
+    driver: local
+  postgres-data:
+    driver: local
+  mongodb-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  default:
+    name: mirrordna-network

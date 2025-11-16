@@ -27,7 +27,13 @@ setup(
     install_requires=[
         "jsonschema>=4.0.0",
         "cryptography>=40.0.0",
+        "pyyaml>=6.0.0",
     ],
+    entry_points={
+        "console_scripts": [
+            "mirrordna=mirrordna.cli:main",
+        ],
+    },
     extras_require={
         "dev": [
             "pytest>=7.0.0",

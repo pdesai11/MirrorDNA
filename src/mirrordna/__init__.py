@@ -8,6 +8,7 @@ This package provides the core protocol implementation including:
 - Checksum computation and verification
 - Timeline event management
 - State snapshot capture and serialization
+- Custom exception hierarchy for domain-specific errors
 """
 
 __version__ = "1.0.0"
@@ -28,6 +29,8 @@ from .state_snapshot import (
     load_snapshot,
     compare_snapshots
 )
+from . import exceptions
+from . import logging as mdna_logging
 
 __all__ = [
     # Config loading
@@ -49,4 +52,8 @@ __all__ = [
     "save_snapshot",
     "load_snapshot",
     "compare_snapshots",
+    # Exceptions
+    "exceptions",
+    # Logging
+    "mdna_logging",
 ]

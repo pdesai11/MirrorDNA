@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Union
 
+from .exceptions import ChecksumComputationError, ConfigFileNotFoundError
+
 
 def compute_file_checksum(path: Union[str, Path]) -> str:
     """
@@ -21,21 +23,28 @@ def compute_file_checksum(path: Union[str, Path]) -> str:
         Hexadecimal checksum string
 
     Raises:
-        FileNotFoundError: If file doesn't exist
+        ConfigFileNotFoundError: If file doesn't exist
+        ChecksumComputationError: If checksum computation fails
     """
     path = Path(path)
 
     if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
+        raise ConfigFileNotFoundError(str(path))
 
-    sha256 = hashlib.sha256()
+    try:
+        sha256 = hashlib.sha256()
 
-    with open(path, 'rb') as f:
-        # Read in chunks for large files
-        for chunk in iter(lambda: f.read(8192), b''):
-            sha256.update(chunk)
+        with open(path, 'rb') as f:
+            # Read in chunks for large files
+            for chunk in iter(lambda: f.read(8192), b''):
+                sha256.update(chunk)
 
-    return sha256.hexdigest()
+        return sha256.hexdigest()
+    except Exception as e:
+        raise ChecksumComputationError(
+            f"Failed to compute checksum for {path}: {str(e)}",
+            {"file_path": str(path), "error": str(e)}
+        )
 
 
 def compute_state_checksum(data: Dict[str, Any]) -> str:
@@ -87,6 +96,9 @@ def verify_checksum(data: Union[str, Dict[str, Any], Path], expected_checksum: s
 
     Returns:
         True if checksums match, False otherwise
+
+    Raises:
+        ChecksumComputationError: If data type is unsupported
     """
     if isinstance(data, (str, Path)) and Path(data).exists():
         actual = compute_file_checksum(data)
@@ -95,6 +107,9 @@ def verify_checksum(data: Union[str, Dict[str, Any], Path], expected_checksum: s
     elif isinstance(data, str):
         actual = compute_text_checksum(data)
     else:
-        raise ValueError(f"Unsupported data type for checksum verification: {type(data)}")
+        raise ChecksumComputationError(
+            f"Unsupported data type for checksum verification: {type(data).__name__}",
+            {"data_type": type(data).__name__}
+        )
 
     return actual.lower() == expected_checksum.lower()

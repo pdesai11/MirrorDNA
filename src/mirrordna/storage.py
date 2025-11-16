@@ -8,6 +8,14 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+from .exceptions import (
+    DuplicateEntryError,
+    EntryNotFoundError,
+    StorageReadError,
+    StorageWriteError,
+    InvalidDataFormatError
+)
+
 
 class StorageAdapter(ABC):
     """Abstract base class for storage adapters."""
@@ -112,15 +120,32 @@ class JSONFileStorage(StorageAdapter):
         if not file_path.exists():
             return {}
 
-        with open(file_path, 'r') as f:
-            return json.load(f)
+        try:
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise StorageReadError(
+                f"Failed to parse JSON in collection '{collection}': {str(e)}",
+                {"collection": collection, "file_path": str(file_path), "error": str(e)}
+            )
+        except Exception as e:
+            raise StorageReadError(
+                f"Failed to load collection '{collection}': {str(e)}",
+                {"collection": collection, "file_path": str(file_path), "error": str(e)}
+            )
 
     def _save_collection(self, collection: str, data: Dict[str, Dict[str, Any]]):
         """Save a collection to disk."""
         file_path = self._get_collection_file(collection)
 
-        with open(file_path, 'w') as f:
-            json.dump(data, f, indent=2)
+        try:
+            with open(file_path, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            raise StorageWriteError(
+                f"Failed to save collection '{collection}': {str(e)}",
+                {"collection": collection, "file_path": str(file_path), "error": str(e)}
+            )
 
     def create(self, collection: str, record: Dict[str, Any]) -> str:
         """Create a new record."""
@@ -135,7 +160,10 @@ class JSONFileStorage(StorageAdapter):
         id_field = id_field_map.get(collection, "id")
 
         if id_field not in record:
-            raise ValueError(f"Record must contain '{id_field}' field")
+            raise InvalidDataFormatError(
+                f"Record must contain '{id_field}' field",
+                {"collection": collection, "required_field": id_field}
+            )
 
         record_id = record[id_field]
 
@@ -144,7 +172,7 @@ class JSONFileStorage(StorageAdapter):
 
         # Check for duplicates
         if record_id in data:
-            raise ValueError(f"Record with ID '{record_id}' already exists in '{collection}'")
+            raise DuplicateEntryError(record_id, collection)
 
         # Store record
         data[record_id] = record

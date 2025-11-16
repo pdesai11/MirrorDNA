@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from .crypto import CryptoUtils
 from .validator import validate_schema
 from .storage import StorageAdapter, JSONFileStorage
+from .exceptions import InvalidIdentityError, IdentityNotFoundError, SchemaValidationError
 
 
 class IdentityManager:
@@ -62,10 +63,13 @@ class IdentityManager:
             Identity record (includes _private_key field)
 
         Raises:
-            ValueError: If identity_type is invalid or validation fails
+            InvalidIdentityError: If identity_type is invalid or validation fails
         """
         if identity_type not in ["user", "agent", "system"]:
-            raise ValueError(f"Invalid identity_type: {identity_type}")
+            raise InvalidIdentityError(
+                f"Invalid identity_type: {identity_type}. Must be 'user', 'agent', or 'system'",
+                {"identity_type": identity_type, "valid_types": ["user", "agent", "system"]}
+            )
 
         # Generate ID and keypair
         identity_id = self._generate_identity_id(identity_type)
@@ -85,7 +89,11 @@ class IdentityManager:
         # Validate against schema
         result = validate_schema(identity, "identity")
         if not result.is_valid:
-            raise ValueError(f"Identity validation failed: {', '.join(result.errors)}")
+            raise SchemaValidationError(
+                f"Identity validation failed: {', '.join(result.errors)}",
+                schema_name="identity",
+                validation_errors=result.errors
+            )
 
         # Store identity
         self.storage.create("identities", identity)
@@ -145,10 +153,13 @@ class IdentityManager:
 
         Returns:
             True if signature is valid, False otherwise
+
+        Raises:
+            IdentityNotFoundError: If identity does not exist
         """
         identity = self.get_identity(identity_id)
         if not identity:
-            return False
+            raise IdentityNotFoundError(identity_id)
 
         message = f"{identity_id}:{claim}"
         return self.crypto.verify(message, signature, identity["public_key"])

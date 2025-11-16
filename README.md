@@ -7,14 +7,16 @@ MirrorDNA is a protocol specification defining how AI agents and users maintain 
 ## Protocol Status
 
 **Protocol Status:**
-MirrorDNA is now governed by **Master Citation v15.2**, defining:
+MirrorDNA is now governed by **Master Citation v15.3**, defining:
 
 - Zero-Drift enforcement
 - Auto-FEU [Fact/Estimate/Unknown] tagging
 - Canonical Vault Supremacy
 - Reflective Integrity System alignment
+- Truth-State verification infrastructure
+- Philosophical audit compliance
 
-All modules and specifications in this repo must follow v15.2 without exception.
+All modules and specifications in this repo must follow v15.3 without exception.
 
 ## What is MirrorDNA?
 

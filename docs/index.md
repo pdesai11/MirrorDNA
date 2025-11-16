@@ -29,6 +29,12 @@ Welcome to the MirrorDNA documentation. This index will help you find what you n
   - Security considerations
   - Performance characteristics
 
+- **[Protocol Infrastructure](infrastructure.md)** — Master Citation v15.3 infrastructure modules
+  - Truth-state enforcement (FEU tagging)
+  - Vault management (VaultID tracking, lineage)
+  - Reflective review (philosophical audits)
+  - Meta-cognition (wisdom gates, ethical assessment)
+
 - **[Schema Reference](schema-reference.md)** — Detailed schema specifications
   - Identity schema
   - Continuity schema
@@ -56,6 +62,7 @@ Welcome to the MirrorDNA documentation. This index will help you find what you n
 | Save a memory | [Integration Guide](integration-guide.md#step-4-create-memories) | [examples/basic_memory.py](../examples/) |
 | Define agent DNA | [Integration Guide](integration-guide.md#agent-dna-definition) | [examples/agent_dna_example.py](../examples/) |
 | Validate schemas | [Schema Reference](schema-reference.md#validation) | [examples/validation_example.py](../examples/) |
+| Use infrastructure modules | [Protocol Infrastructure](infrastructure.md) | [examples/infrastructure_demo.py](../examples/) |
 
 ### Schema Lookups
 

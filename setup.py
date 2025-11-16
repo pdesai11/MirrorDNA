@@ -42,6 +42,26 @@ setup(
             "isort>=5.0.0",
             "mypy>=1.0.0",
         ],
+        "api": [
+            "fastapi>=0.104.0",
+            "uvicorn>=0.24.0",
+            "pydantic>=2.0.0",
+        ],
+        "postgresql": [
+            "sqlalchemy>=2.0.0",
+            "psycopg2-binary>=2.9.0",
+        ],
+        "mongodb": [
+            "pymongo>=4.0.0",
+        ],
+        "all": [
+            "fastapi>=0.104.0",
+            "uvicorn>=0.24.0",
+            "pydantic>=2.0.0",
+            "sqlalchemy>=2.0.0",
+            "psycopg2-binary>=2.9.0",
+            "pymongo>=4.0.0",
+        ],
     },
     classifiers=[
         "Development Status :: 4 - Beta",

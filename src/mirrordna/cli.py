@@ -8,6 +8,11 @@ Provides command-line access to all core protocol operations including:
 - Timeline query
 - State snapshot operations
 - Health checks
+- Performance benchmarking
+- Interactive configuration wizard
+- Backup and restore
+- Plugin management
+- REST API server
 """
 
 import argparse
@@ -346,6 +351,249 @@ def cmd_snapshot_load(args):
 
 
 # ============================================================================
+# Wizard Command
+# ============================================================================
+
+def cmd_wizard(args):
+    """Run interactive configuration wizard."""
+    try:
+        from .wizard import run_wizard
+
+        output_dir = Path(args.output) if args.output else Path.cwd()
+
+        print("Starting MirrorDNA Configuration Wizard...")
+        print()
+
+        config = run_wizard(output_dir=output_dir)
+
+        print("\n✓ Configuration wizard completed successfully!")
+
+        return 0
+    except KeyboardInterrupt:
+        print("\n\nWizard cancelled by user.", file=sys.stderr)
+        return 130
+    except Exception as e:
+        print(f"Wizard failed: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+# ============================================================================
+# Backup Commands
+# ============================================================================
+
+def cmd_backup_create(args):
+    """Create a backup."""
+    try:
+        from .backup import BackupManager
+
+        backup_dir = Path(args.backup_dir) if args.backup_dir else None
+        manager = BackupManager(backup_dir=backup_dir)
+
+        metadata = manager.create_backup(
+            source_path=Path(args.source),
+            backup_name=args.name,
+            compress=not args.no_compress,
+            encrypt=args.encrypt,
+            encryption_key=args.encryption_key,
+            metadata={"description": args.description} if args.description else None
+        )
+
+        print(f"✓ Backup created successfully!")
+        print(f"  Backup ID: {metadata.backup_id}")
+        print(f"  Size: {metadata.size_bytes:,} bytes")
+        print(f"  Files: {metadata.files_count}")
+        print(f"  Encrypted: {metadata.encrypted}")
+        print(f"  Compressed: {metadata.compressed}")
+        print(f"  Checksum: {metadata.checksum}")
+
+        return 0
+    except Exception as e:
+        print(f"Backup creation failed: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+def cmd_backup_restore(args):
+    """Restore from a backup."""
+    try:
+        from .backup import BackupManager
+
+        backup_dir = Path(args.backup_dir) if args.backup_dir else None
+        manager = BackupManager(backup_dir=backup_dir)
+
+        success = manager.restore_backup(
+            backup_path=Path(args.backup),
+            destination=Path(args.destination),
+            verify=not args.no_verify,
+            encryption_key=args.encryption_key
+        )
+
+        if success:
+            print(f"✓ Backup restored successfully to: {args.destination}")
+            return 0
+        else:
+            print("✗ Backup restore failed", file=sys.stderr)
+            return 1
+
+    except Exception as e:
+        print(f"Restore failed: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+def cmd_backup_list(args):
+    """List available backups."""
+    try:
+        from .backup import BackupManager
+
+        backup_dir = Path(args.backup_dir) if args.backup_dir else None
+        manager = BackupManager(backup_dir=backup_dir)
+
+        backups = manager.list_backups()
+
+        if not backups:
+            print("No backups found.")
+            return 0
+
+        print(f"Found {len(backups)} backup(s):\n")
+
+        for backup in backups:
+            print(f"  {backup.backup_id}")
+            print(f"    Created: {backup.created_at}")
+            print(f"    Size: {backup.size_bytes:,} bytes")
+            print(f"    Files: {backup.files_count}")
+            print(f"    Encrypted: {backup.encrypted}")
+            print(f"    Checksum: {backup.checksum}")
+            print()
+
+        return 0
+    except Exception as e:
+        print(f"Failed to list backups: {e}", file=sys.stderr)
+        return 1
+
+
+# ============================================================================
+# Plugin Commands
+# ============================================================================
+
+def cmd_plugin_list(args):
+    """List installed plugins."""
+    try:
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get_instance()
+        plugins = registry.list_plugins()
+
+        if not plugins:
+            print("No plugins installed.")
+            return 0
+
+        print(f"Installed plugins ({len(plugins)}):\n")
+
+        for metadata in plugins:
+            print(f"  {metadata.name} (v{metadata.version})")
+            print(f"    Type: {metadata.plugin_type.value}")
+            print(f"    Description: {metadata.description}")
+            if metadata.author:
+                print(f"    Author: {metadata.author}")
+            if metadata.requires:
+                print(f"    Requires: {', '.join(metadata.requires)}")
+            print()
+
+        return 0
+    except Exception as e:
+        print(f"Failed to list plugins: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_plugin_info(args):
+    """Show plugin information."""
+    try:
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get_instance()
+        plugin = registry.get_plugin(args.name)
+
+        if not plugin:
+            print(f"Plugin not found: {args.name}", file=sys.stderr)
+            return 1
+
+        metadata = plugin.get_metadata()
+
+        print(f"Plugin: {metadata.name}")
+        print(f"Version: {metadata.version}")
+        print(f"Type: {metadata.plugin_type.value}")
+        print(f"Description: {metadata.description}")
+
+        if metadata.author:
+            print(f"Author: {metadata.author}")
+
+        if metadata.requires:
+            print(f"\nDependencies:")
+            for dep in metadata.requires:
+                print(f"  - {dep}")
+
+        if metadata.config_schema:
+            print(f"\nConfiguration Schema:")
+            print(json.dumps(metadata.config_schema, indent=2))
+
+        if metadata.tags:
+            print(f"\nTags: {', '.join(metadata.tags)}")
+
+        return 0
+    except Exception as e:
+        print(f"Failed to get plugin info: {e}", file=sys.stderr)
+        return 1
+
+
+# ============================================================================
+# API Server Command
+# ============================================================================
+
+def cmd_serve(args):
+    """Start REST API server."""
+    try:
+        from .api import serve
+
+        storage_dir = Path(args.storage_dir) if args.storage_dir else None
+
+        print(f"Starting MirrorDNA API server...")
+        print(f"  Host: {args.host}")
+        print(f"  Port: {args.port}")
+        print(f"  Docs: http://{args.host}:{args.port}/api/docs")
+        print()
+
+        serve(
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+            storage_dir=storage_dir
+        )
+
+        return 0
+    except KeyboardInterrupt:
+        print("\n\nServer stopped by user.", file=sys.stderr)
+        return 0
+    except ImportError as e:
+        print(f"Failed to start server: {e}", file=sys.stderr)
+        print("Install API dependencies with: pip install 'mirrordna[api]'", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Server failed: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+# ============================================================================
 # Version Command
 # ============================================================================
 
@@ -510,6 +758,56 @@ def create_parser():
     # Health check command
     health_parser = subparsers.add_parser("health", help="System health check")
     health_parser.set_defaults(func=cmd_health_check)
+
+    # Wizard command
+    wizard_parser = subparsers.add_parser("wizard", help="Interactive configuration wizard")
+    wizard_parser.add_argument("--output", type=str, help="Output directory (default: current directory)")
+    wizard_parser.set_defaults(func=cmd_wizard)
+
+    # Backup commands
+    backup_parser = subparsers.add_parser("backup", help="Backup and restore operations")
+    backup_sub = backup_parser.add_subparsers(dest="backup_command")
+
+    backup_create = backup_sub.add_parser("create", help="Create a backup")
+    backup_create.add_argument("source", help="Source directory to backup")
+    backup_create.add_argument("--name", type=str, help="Backup name (default: timestamp)")
+    backup_create.add_argument("--backup-dir", type=str, help="Backup directory (default: ~/.mirrordna/backups)")
+    backup_create.add_argument("--no-compress", action="store_true", help="Disable compression")
+    backup_create.add_argument("--encrypt", action="store_true", help="Enable encryption")
+    backup_create.add_argument("--encryption-key", type=str, help="Encryption key (required if --encrypt)")
+    backup_create.add_argument("--description", type=str, help="Backup description")
+    backup_create.set_defaults(func=cmd_backup_create)
+
+    backup_restore = backup_sub.add_parser("restore", help="Restore from backup")
+    backup_restore.add_argument("backup", help="Backup file path")
+    backup_restore.add_argument("destination", help="Destination directory")
+    backup_restore.add_argument("--backup-dir", type=str, help="Backup directory (default: ~/.mirrordna/backups)")
+    backup_restore.add_argument("--no-verify", action="store_true", help="Skip verification")
+    backup_restore.add_argument("--encryption-key", type=str, help="Decryption key (if encrypted)")
+    backup_restore.set_defaults(func=cmd_backup_restore)
+
+    backup_list = backup_sub.add_parser("list", help="List available backups")
+    backup_list.add_argument("--backup-dir", type=str, help="Backup directory (default: ~/.mirrordna/backups)")
+    backup_list.set_defaults(func=cmd_backup_list)
+
+    # Plugin commands
+    plugin_parser = subparsers.add_parser("plugin", help="Plugin management")
+    plugin_sub = plugin_parser.add_subparsers(dest="plugin_command")
+
+    plugin_list = plugin_sub.add_parser("list", help="List installed plugins")
+    plugin_list.set_defaults(func=cmd_plugin_list)
+
+    plugin_info = plugin_sub.add_parser("info", help="Show plugin information")
+    plugin_info.add_argument("name", help="Plugin name")
+    plugin_info.set_defaults(func=cmd_plugin_info)
+
+    # API server command
+    serve_parser = subparsers.add_parser("serve", help="Start REST API server")
+    serve_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
+    serve_parser.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
+    serve_parser.add_argument("--storage-dir", type=str, help="Storage directory (default: ~/.mirrordna/data)")
+    serve_parser.set_defaults(func=cmd_serve)
 
     # Version command
     version_parser = subparsers.add_parser("version", help="Show version information")
